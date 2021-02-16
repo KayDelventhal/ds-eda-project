@@ -1,4 +1,7 @@
 # Byte-compiled / optimized / DLL files
+
+us_bank_wages
+
 __pycache__/
 *.py[cod]
 *$py.class
