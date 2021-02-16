@@ -1,6 +1,12 @@
 # Byte-compiled / optimized / DLL files
 
+# EDA projet - gitignore settings
 us_bank_wages
+
+# Additional gitignore stuff
+.DS_Store
+.ipynb_checkpoints
+.vscode
 
 __pycache__/
 *.py[cod]
