@@ -2,6 +2,17 @@
 
 # EDA projet - gitignore settings
 us_bank_wages
+data_group_work
+work_data
+
+airports_all.ipynb
+barplot_altair.ipynb
+barplot_matplot.ipynb
+barplot_plotly.ipynb
+barplot_seaborn.ipynb
+example_Line-Plot.ipynb
+
+Untitled.ipynb
 
 # Additional gitignore stuff
 .DS_Store
