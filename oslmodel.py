@@ -11,7 +11,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 def single_line(formula: str='SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBEGIN'):
-    '''main function of my EDA with LRM'''
+    '''single_line function to compute LRM with osl()'''
     LOG = False
 
     data = pd.read_csv('us_bank_wages/us_bank_wages.txt', delimiter='\t')
@@ -66,7 +66,7 @@ def single_line(formula: str='SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBE
 
 
 def brute_force():
-    '''main function of my EDA with LRM'''
+    '''brute_force function to compute LRM with osl()'''
     LOG = False
 
     data = pd.read_csv('us_bank_wages/us_bank_wages.txt', delimiter='\t')
