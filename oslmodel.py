@@ -1,23 +1,11 @@
-import numpy as np
 import pandas as pd
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-import altair as alt
-
-import statsmodels.api as sm
 import statsmodels.formula.api as smf
-
-from statsmodels.sandbox.regression.predstd import wls_prediction_std
-from statsmodels.graphics.regressionplots import plot_partregress_grid
-
 from statsmodels.tools.eval_measures import mse, rmse
 from statsmodels.iolib.smpickle import load_pickle
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
-
-import scipy.stats as stats
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -26,8 +14,7 @@ def main():
     '''main function of my EDA with LRM'''
     LOG = False
 
-    file = 'us_bank_wages/us_bank_wages_data.csv'
-    data = read_csv(file)
+    data = pd.read_csv('us_bank_wages/us_bank_wages.txt', delimiter='\t')
 
     if 'Unnamed: 0' in data.columns.to_list():
         data.drop('Unnamed: 0', axis=1, inplace=True)
@@ -44,33 +31,48 @@ def main():
     save_csv(train,'work_data/us_bank_wages_test.csv')
     save_csv(test,'work_data/us_bank_wages_test.csv')
 
+    workdata = train.copy()
+
     if LOG:
         gcc = gen_column_combos(['SALBEGIN','LSALBEGIN','GENDER','C(MINORITY)','C(JOBCAT)','C(EDUC)'])
     else:
         gcc = gen_column_combos(['SALBEGIN','GENDER','C(MINORITY)','C(JOBCAT)','C(EDUC)'])
 
-    model_result = {}
+    result_rmse = {}
+    result_radj = {}
     for combo in gcc:
         if LOG:
             formula = 'LSALARY ~ ' + ' + '.join(combo)
         else:
             formula = 'SALARY ~ ' + ' + '.join(combo)
 
-        model = train_model(data,formula)
-        model = model_fit(model)
+        model = smf.ols(formula=formula, data=workdata)
+        model_fit = model.fit()
 
-        rsquared_adj = model.rsquared_adj
+        rsquared_adj = model_fit.rsquared_adj
 
-        Y = train['SALARY'].astype(float)
-        model_actual, model_predict = model_predict(data,Y)
-        RMSE = model_rmse(model_actual, model_predict)
+        Y = workdata['SALARY'].astype(float)
+        predict = model_fit.predict(workdata);
+        actual = Y.astype(float);
+
+        RMSE = rmse(actual, predict)
         
-        model_result[rsquared_adj] = [RMSE,formula]
+        result_radj[rsquared_adj] = [RMSE,formula]
+        result_rmse[RMSE] = [rsquared_adj,formula]
 
-    # list model fittings - top 10
-    model_fit_result_list = sorted(model_fit_result.keys())[-11:]
+    file = 'us_bank_wages/us_bank_wages_train_model_fit.pickle'
+    print('\n--- save model:', file)
+    model_fit.save(file)
+    
+    print('\n--- result_radj ---')
+    model_fit_result_list = sorted(result_radj.keys())[-11:]
     for fit in model_fit_result_list:
-        print('rsquared_adj:', fit, '\t<-', model_fit_result[fit])
+        print('rsquared_adj:', fit, '\t<-', result_radj[fit])
+
+    print('\n--- result_rmse ---')
+    model_fit_result_list = sorted(result_rmse.keys())[:11]
+    for fit in model_fit_result_list:
+        print('rsquared_adj:', fit, '\t<-', result_rmse[fit])
 
 
 def gen_column_combos(columns: list=['SALBEGIN','LSALBEGIN','GENDER','C(MINORITY)','C(JOBCAT)','C(EDUC)']):
@@ -95,73 +97,10 @@ def gen_column_combos(columns: list=['SALBEGIN','LSALBEGIN','GENDER','C(MINORITY
 
     return gcc
 
-def train_model(data: pd.DataFrame, formula='SALARY ~ C(EDUC) + C(JOBCAT) + SALBEGIN'):
-    '''function to train a L.R.M. (OSL model'''
-
-    return smf.ols(formula=formula, data=data)
-
-def model_fit(model):
-    '''function to fit() a trained model'''
-
-    return model.fit()
-
-def model_rsquared_adj(model):
-    '''function to fit() a trained model'''
-
-    return model.rsquared_adj
-
-def model_rsquared(model):
-    '''function to fit() a trained model'''
-
-    return model.rsquared
-
-
-def model_predict(data: pd.DataFrame, y_col: str='SALARY'):
-    '''function to compute the prediction of the osl-model'''
-    model_predict = model_fit.predict(data);
-    model_actual = data[y_col].astype(float);
-
-    return model_actual, model_predict
-
-
-def model_error(model_actual, model_predict):
-    '''print common error parameter'''
-    print("Mean Absolute Error (MAE)        : {}".format(
-        mean_absolute_error(model_actual, model_predict)))
-    print("Mean Squared Error (MSE)         : {}".format(
-        mse(model_actual, model_predict)))
-    print("Root Mean Squared Error (RMSE)   : {}".format(
-        rmse(model_actual, model_predict)))
-    print("Mean Absolute Perc. Error (MAPE) : {}".format(
-        np.mean(np.abs((model_actual - model_predict) / model_actual)) * 100))
-
-
-def model_rmse(model_actual, model_predict):
-    ''' calculate the RMSE'''
-    return rmse(model_actual, model_predict)
-
-
-def save_model(model_fit, file: str='default.pickle'):
-    '''function to save the osl-model'''
-    model_fit.save(file)
-
-
-def read_model(file: str='default.csv'):
-    '''function to load the osl-model'''
-    model_fit = load_pickle(file)
-
-    return model_fit
-
 
 def save_csv(data: pd.DataFrame, file: str='default.csv'):
     '''function to save a pandas DataFrame into a CSV file'''
     data.to_csv(file)
-
-
-def read_csv(file: str='default.csv'):
-    '''function to load a pandas DataFrame into a CSV file'''
-    
-    return pd.read_csv(file)
 
 
 if __name__ == "__main__":
@@ -171,3 +110,31 @@ if __name__ == "__main__":
     pass
 
 # EOF
+
+'''
+--- result_radj ---
+rsquared_adj: 0.8082399293083553        <- [7721.604831880341, 'SALARY ~ C(EDUC) + SALBEGIN']
+rsquared_adj: 0.8084254256228924        <- [7707.375868347392, 'SALARY ~ C(EDUC) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 0.8099951231848639        <- [7675.735100135453, 'SALARY ~ C(EDUC) + GENDER + SALBEGIN']
+rsquared_adj: 0.8107492238448184        <- [7650.044288763978, 'SALARY ~ C(EDUC) + C(MINORITY) + GENDER + SALBEGIN']
+rsquared_adj: 0.8154961818637975        <- [7635.597940584766, 'SALARY ~ C(JOBCAT) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 0.8157848960520228        <- [7639.814675320462, 'SALARY ~ C(JOBCAT) + SALBEGIN']
+rsquared_adj: 0.818790245414134         <- [7567.129377447405, 'SALARY ~ C(JOBCAT) + GENDER + SALBEGIN']
+rsquared_adj: 0.8187965885289206        <- [7556.873858021025, 'SALARY ~ C(JOBCAT) + C(MINORITY) + GENDER + SALBEGIN']
+rsquared_adj: 0.8255631713443903        <- [7334.492950941693, 'SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 0.8256204234943031        <- [7343.3279507185025, 'SALARY ~ C(EDUC) + C(JOBCAT) + SALBEGIN']
+rsquared_adj: 0.8262946570863963        <- [7319.098514513653, 'SALARY ~ C(EDUC) + C(JOBCAT) + GENDER + SALBEGIN']
+
+--- result_rmse ---
+rsquared_adj: 7319.098514513653         <- [0.8262946570863963, 'SALARY ~ C(EDUC) + C(JOBCAT) + GENDER + SALBEGIN']
+rsquared_adj: 7334.492950941693         <- [0.8255631713443903, 'SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 7343.3279507185025        <- [0.8256204234943031, 'SALARY ~ C(EDUC) + C(JOBCAT) + SALBEGIN']
+rsquared_adj: 7556.873858021025         <- [0.8187965885289206, 'SALARY ~ C(JOBCAT) + C(MINORITY) + GENDER + SALBEGIN']
+rsquared_adj: 7567.129377447405         <- [0.818790245414134, 'SALARY ~ C(JOBCAT) + GENDER + SALBEGIN']
+rsquared_adj: 7635.597940584766         <- [0.8154961818637975, 'SALARY ~ C(JOBCAT) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 7639.814675320462         <- [0.8157848960520228, 'SALARY ~ C(JOBCAT) + SALBEGIN']
+rsquared_adj: 7650.044288763978         <- [0.8107492238448184, 'SALARY ~ C(EDUC) + C(MINORITY) + GENDER + SALBEGIN']
+rsquared_adj: 7675.735100135453         <- [0.8099951231848639, 'SALARY ~ C(EDUC) + GENDER + SALBEGIN']
+rsquared_adj: 7707.375868347392         <- [0.8084254256228924, 'SALARY ~ C(EDUC) + C(MINORITY) + SALBEGIN']
+rsquared_adj: 7721.604831880341         <- [0.8082399293083553, 'SALARY ~ C(EDUC) + SALBEGIN']
+'''
