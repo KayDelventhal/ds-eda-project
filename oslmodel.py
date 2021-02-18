@@ -10,7 +10,62 @@ from sklearn.metrics import mean_absolute_error
 import warnings
 warnings.filterwarnings('ignore')
 
-def main():
+def single_line(formula: str='SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBEGIN'):
+    '''main function of my EDA with LRM'''
+    LOG = False
+
+    data = pd.read_csv('us_bank_wages/us_bank_wages.txt', delimiter='\t')
+
+    if 'Unnamed: 0' in data.columns.to_list():
+        data.drop('Unnamed: 0', axis=1, inplace=True)
+
+    # de-skewing - explaination: the SALERY colmuns are right skewed and to compensate for that I use log()
+    if LOG:
+        data.eval('LSALARY = log(SALARY)', inplace = True)
+        data.eval('LSALBEGIN = log(SALBEGIN)', inplace = True)
+
+    # spliting data into train and test data
+    train, test = train_test_split(data, test_size=0.2, random_state=42, shuffle=True) 
+
+    save_csv(data,'work_data/us_bank_wages_data.csv')
+    save_csv(train,'work_data/us_bank_wages_test.csv')
+    save_csv(test,'work_data/us_bank_wages_test.csv')
+
+    workdata = train.copy()
+
+    result_rmse = {}
+    result_radj = {}
+
+    model = smf.ols(formula=formula, data=workdata)
+    model_fit = model.fit()
+
+    rsquared_adj = model_fit.rsquared_adj
+
+    Y = workdata['SALARY'].astype(float)
+    predict = model_fit.predict(workdata);
+    actual = Y.astype(float);
+
+    RMSE = rmse(actual, predict)
+    
+    result_radj[rsquared_adj] = [RMSE,formula]
+    result_rmse[RMSE] = [rsquared_adj,formula]
+
+    file = 'us_bank_wages/us_bank_wages_train_model_fit.pickle'
+    print('\n--- save model:', file)
+    model_fit.save(file)
+    
+    print('\n--- result_radj ---')
+    model_fit_result_list = sorted(result_radj.keys())[-11:]
+    for fit in model_fit_result_list:
+        print('rsquared_adj:', fit, '\t<-', result_radj[fit])
+
+    print('\n--- result_rmse ---')
+    model_fit_result_list = sorted(result_rmse.keys())[:11]
+    for fit in model_fit_result_list:
+        print('rsquared_adj:', fit, '\t<-', result_rmse[fit])
+
+
+def brute_force():
     '''main function of my EDA with LRM'''
     LOG = False
 
@@ -75,6 +130,22 @@ def main():
         print('rsquared_adj:', fit, '\t<-', result_rmse[fit])
 
 
+def gen_osl_model(formula, workdata):    
+    '''function to compute an osl() model'''
+    model = smf.ols(formula=formula, data=workdata)
+    model_fit = model.fit()
+
+    rsquared_adj = model_fit.rsquared_adj
+
+    Y = workdata['SALARY'].astype(float)
+    predict = model_fit.predict(workdata);
+    actual = Y.astype(float);
+
+    RMSE = rmse(actual, predict)
+
+    return model, model, rsquared_adj, RMSE, actual, predict
+
+
 def gen_column_combos(columns: list=['SALBEGIN','LSALBEGIN','GENDER','C(MINORITY)','C(JOBCAT)','C(EDUC)']):
     '''funcction to generate all combination for columns'''
     gcc = []
@@ -105,7 +176,16 @@ def save_csv(data: pd.DataFrame, file: str='default.csv'):
 
 if __name__ == "__main__":
 
-    main()
+    choice = input('1:brute-force; 2:enter-string')
+    if '1' in choice:
+        
+        brute_force()
+
+    elif '2' in choice:
+
+        exp = input('SALARY ~ C(EDUC) + C(JOBCAT) + C(MINORITY) + SALBEGIN')
+
+        single_line(exp)
 
     pass
 
